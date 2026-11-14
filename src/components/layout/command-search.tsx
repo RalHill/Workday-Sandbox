@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Command,
@@ -28,9 +28,22 @@ import {
   Workflow,
   FolderTree,
   Calculator,
-  FlaskConical
+  FlaskConical,
+  Clock,
+  Star,
+  TrendingUp
 } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
+
+/**
+ * Workday Command Search (Global Search)
+ * 
+ * Based on Workday 2026R1 design:
+ * - Search is the "gateway to work" - start with what you want to achieve
+ * - Categories: Tasks, Reports, People, Articles
+ * - AI-enhanced search with best-match results
+ * - Recent searches and saved categories
+ */
 
 interface CommandItem {
   id: string
@@ -42,42 +55,57 @@ interface CommandItem {
   keywords?: string[]
 }
 
+// Workday-style command items organized by category
 const COMMAND_ITEMS: CommandItem[] = [
-  // Tasks
-  { id: 'create-position', name: 'Create Position', category: 'task', icon: Plus, action: '/positions/create', keywords: ['new', 'add', 'position', 'job'] },
-  { id: 'hire-employee', name: 'Hire Employee', category: 'task', icon: UserPlus, action: '/staffing/hire', keywords: ['hire', 'new', 'employee', 'onboard'] },
-  { id: 'change-comp', name: 'Request Compensation Change', category: 'task', icon: Calculator, action: '/compensation/change', keywords: ['salary', 'pay', 'raise', 'compensation'] },
-  { id: 'terminate', name: 'Terminate Employee', category: 'task', icon: Users, action: '/staffing/terminate', keywords: ['term', 'end', 'offboard'] },
-  { id: 'edit-bp', name: 'Edit Business Process', category: 'task', icon: Workflow, action: '/setup/business-processes', keywords: ['workflow', 'bp', 'process', 'approval'] },
-  { id: 'create-org', name: 'Create Supervisory Organization', category: 'task', icon: FolderTree, action: '/organizations/create', keywords: ['org', 'department', 'team'] },
+  // Tasks - Common staffing and HR actions
+  { id: 'hire-employee', name: 'Hire Employee', description: 'Start the hire business process', category: 'task', icon: UserPlus, action: '/staffing/hire', keywords: ['hire', 'new', 'employee', 'onboard', 'recruit'] },
+  { id: 'create-position', name: 'Create Position', description: 'Add a new position to your organization', category: 'task', icon: Plus, action: '/positions/create', keywords: ['new', 'add', 'position', 'job', 'headcount'] },
+  { id: 'terminate', name: 'Terminate Employee', description: 'Initiate termination business process', category: 'task', icon: Users, action: '/staffing/terminate', keywords: ['term', 'end', 'offboard', 'separation'] },
+  { id: 'change-comp', name: 'Request Compensation Change', description: 'Propose a compensation change', category: 'task', icon: Calculator, action: '/compensation/change', keywords: ['salary', 'pay', 'raise', 'compensation', 'merit'] },
+  { id: 'edit-bp', name: 'Edit Business Process Definition', description: 'Configure business process steps and rules', category: 'task', icon: Workflow, action: '/setup/business-processes', keywords: ['workflow', 'bp', 'process', 'approval', 'routing'] },
+  { id: 'create-org', name: 'Create Supervisory Organization', description: 'Add a new supervisory organization', category: 'task', icon: FolderTree, action: '/organizations/create', keywords: ['org', 'department', 'team', 'hierarchy'] },
+  { id: 'transfer', name: 'Transfer Employee', description: 'Move worker to different position', category: 'task', icon: Users, action: '/staffing/transfer', keywords: ['move', 'reassign', 'transfer'] },
   
-  // Reports
-  { id: 'headcount-report', name: 'Headcount Report', category: 'report', icon: BarChart3, action: '/reports/headcount', keywords: ['count', 'workers', 'employees'] },
-  { id: 'org-chart', name: 'Organization Chart', category: 'report', icon: FolderTree, action: '/reports/org-chart', keywords: ['chart', 'hierarchy', 'structure'] },
-  { id: 'open-positions', name: 'Open Positions Report', category: 'report', icon: Briefcase, action: '/reports/open-positions', keywords: ['vacant', 'unfilled', 'hiring'] },
-  { id: 'comp-report', name: 'Compensation Summary', category: 'report', icon: Calculator, action: '/reports/compensation', keywords: ['salary', 'pay', 'wages'] },
-  { id: 'bp-transactions', name: 'Business Process Transactions', category: 'report', icon: ClipboardList, action: '/reports/transactions', keywords: ['workflow', 'pending', 'status'] },
+  // Reports - Workday reporting
+  { id: 'headcount-report', name: 'Headcount Report', description: 'View headcount by organization', category: 'report', icon: BarChart3, action: '/reports/headcount', keywords: ['count', 'workers', 'employees', 'fte'] },
+  { id: 'org-chart', name: 'View Org Chart', description: 'Navigate organization hierarchy', category: 'report', icon: FolderTree, action: '/reports/org-chart', keywords: ['chart', 'hierarchy', 'structure', 'tree'] },
+  { id: 'open-positions', name: 'Open Positions Report', description: 'View vacant positions', category: 'report', icon: Briefcase, action: '/reports/open-positions', keywords: ['vacant', 'unfilled', 'hiring', 'requisition'] },
+  { id: 'comp-report', name: 'Compensation Summary', description: 'View compensation data', category: 'report', icon: Calculator, action: '/reports/compensation', keywords: ['salary', 'pay', 'wages', 'total rewards'] },
+  { id: 'bp-transactions', name: 'Business Process Transactions', description: 'View BP status and history', category: 'report', icon: ClipboardList, action: '/reports/transactions', keywords: ['workflow', 'pending', 'status', 'audit'] },
+  { id: 'worker-history', name: 'Worker History Report', description: 'View worker transaction history', category: 'report', icon: Clock, action: '/reports/worker-history', keywords: ['history', 'audit', 'changes'] },
   
-  // Setup
-  { id: 'job-profiles', name: 'Maintain Job Profiles', category: 'setup', icon: Briefcase, action: '/setup/job-profiles', keywords: ['job', 'title', 'catalog'] },
-  { id: 'security-groups', name: 'Maintain Security Groups', category: 'setup', icon: Shield, action: '/setup/security-groups', keywords: ['access', 'permissions', 'roles'] },
-  { id: 'bp-definitions', name: 'Business Process Definitions', category: 'setup', icon: Workflow, action: '/setup/business-processes', keywords: ['workflow', 'bp', 'approval'] },
-  { id: 'locations', name: 'Maintain Locations', category: 'setup', icon: Building2, action: '/setup/locations', keywords: ['office', 'site', 'address'] },
-  { id: 'cost-centers', name: 'Maintain Cost Centers', category: 'setup', icon: Calculator, action: '/setup/cost-centers', keywords: ['budget', 'finance', 'cc'] },
+  // Setup & Administration
+  { id: 'job-profiles', name: 'Maintain Job Profiles', description: 'Configure job catalog', category: 'setup', icon: Briefcase, action: '/setup/job-profiles', keywords: ['job', 'title', 'catalog', 'profile'] },
+  { id: 'security-groups', name: 'Maintain Security Groups', description: 'Configure access permissions', category: 'setup', icon: Shield, action: '/setup/security-groups', keywords: ['access', 'permissions', 'roles', 'security'] },
+  { id: 'bp-definitions', name: 'Business Process Definitions', description: 'Configure BP steps and routing', category: 'setup', icon: Workflow, action: '/setup/business-processes', keywords: ['workflow', 'bp', 'approval', 'condition'] },
+  { id: 'condition-rules', name: 'Maintain Condition Rules', description: 'Configure BP condition rules', category: 'setup', icon: Settings, action: '/setup/condition-rules', keywords: ['rule', 'condition', 'logic'] },
+  { id: 'locations', name: 'Maintain Locations', description: 'Configure work locations', category: 'setup', icon: Building2, action: '/setup/locations', keywords: ['office', 'site', 'address', 'location'] },
   
-  // Practice Labs
-  { id: 'practice-labs', name: 'Practice Labs', category: 'task', icon: FlaskConical, action: '/labs', keywords: ['learn', 'practice', 'exercise', 'training'] },
+  // Practice Labs - Sandbox-specific
+  { id: 'practice-labs', name: 'Practice Labs', description: 'Hands-on Workday exercises', category: 'task', icon: FlaskConical, action: '/labs', keywords: ['learn', 'practice', 'exercise', 'training', 'lab'] },
 ]
 
 export function CommandSearch() {
   const router = useRouter()
   const { isCommandOpen, setCommandOpen } = useAppStore()
   const [searchQuery, setSearchQuery] = useState('')
+  const [localOpen, setLocalOpen] = useState(false)
+
+  // Sync zustand state to local state after mount
+  useEffect(() => {
+    setLocalOpen(isCommandOpen)
+  }, [isCommandOpen])
+
+  // Handle dialog open/close
+  const handleOpenChange = useCallback((open: boolean) => {
+    setLocalOpen(open)
+    setCommandOpen(open)
+  }, [setCommandOpen])
 
   const runCommand = useCallback((action: string) => {
-    setCommandOpen(false)
+    handleOpenChange(false)
     router.push(action)
-  }, [router, setCommandOpen])
+  }, [router, handleOpenChange])
 
   // Filter items based on search
   const filteredItems = COMMAND_ITEMS.filter(item => {
@@ -95,7 +123,7 @@ export function CommandSearch() {
   const setupItems = filteredItems.filter(i => i.category === 'setup')
 
   return (
-    <CommandDialog open={isCommandOpen} onOpenChange={setCommandOpen}>
+    <CommandDialog open={localOpen} onOpenChange={handleOpenChange}>
       <CommandInput 
         placeholder="Search tasks, reports, people..." 
         value={searchQuery}

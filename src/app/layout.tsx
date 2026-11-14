@@ -1,34 +1,46 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Roboto, Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
-import { Header } from "@/components/layout/header";
-import { Sidebar } from "@/components/layout/sidebar";
+import { WorkdayHeader } from "@/components/layout/workday-header";
+import { CommandSearch } from "@/components/layout/command-search";
 
-const inter = Inter({
-  variable: "--font-inter",
+// Workday Canvas uses Roboto as its primary typeface
+const roboto = Roboto({
+  variable: "--font-roboto",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "700"],
+  display: "swap",
+});
+
+// Roboto Mono for tabular figures and code
+const robotoMono = Roboto_Mono({
+  variable: "--font-roboto-mono",
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Workday Sandbox | HRIS Practice Platform",
-  description: "Practice configuring Workday objects, business processes, and security in a safe sandbox environment",
+  title: "Workday",
+  description: "Workday HCM Practice Sandbox - Authentic analyst training environment",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans">
+    <html lang="en" className={`${roboto.variable} ${robotoMono.variable} h-full`}>
+      <body className="min-h-full flex flex-col bg-[#F7F7F7]">
         <Providers>
           <div className="flex min-h-screen flex-col">
-            <Header pendingTaskCount={3} />
-            <div className="flex flex-1">
-              <Sidebar />
-              <main className="flex-1 overflow-auto bg-muted/30">
-                {children}
-              </main>
-            </div>
+            <WorkdayHeader />
+            <main className="flex-1 overflow-auto">
+              {children}
+            </main>
           </div>
+          <CommandSearch />
         </Providers>
       </body>
     </html>

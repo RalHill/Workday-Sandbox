@@ -4,12 +4,26 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* 
+ * WORKDAY CANVAS DESIGN SYSTEM - Authentic Color Tokens
+ * Based on official Canvas Kit: https://canvas.workday.com/styles/tokens/color
+ * Primary: Blueberry palette (#0875E1)
+ */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-roboto);
+  --font-mono: var(--font-roboto-mono);
+  --font-heading: var(--font-roboto);
+  
+  /* Workday Canvas semantic tokens */
+  --color-workday-blue: #0875E1;
+  --color-workday-blue-light: #A6D2FF;
+  --color-workday-blue-strong: #005CB9;
+  --color-workday-blue-deep: #004387;
+  
+  /* Surface and background tokens */
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -18,11 +32,15 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  
+  /* Chart tokens */
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  
+  /* Core tokens */
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -39,82 +57,149 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  
+  /* Border radius - Canvas uses subtle rounding */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
+  --radius-4xl: 24px;
 }
 
+/* 
+ * WORKDAY CANVAS LIGHT THEME
+ * Authentic Workday color palette from Canvas Design System
+ */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Background colors - Canvas bg/default */
+  --background: #FFFFFF;
+  --foreground: #333333;
+  
+  /* Card/Surface colors - Canvas surface/default */
+  --card: #FFFFFF;
+  --card-foreground: #333333;
+  
+  /* Popover - Canvas surface/default */
+  --popover: #FFFFFF;
+  --popover-foreground: #333333;
+  
+  /* Primary - Workday Blueberry 400 */
+  --primary: #0875E1;
+  --primary-foreground: #FFFFFF;
+  
+  /* Secondary - Canvas surface/alt */
+  --secondary: #F3F3F3;
+  --secondary-foreground: #333333;
+  
+  /* Muted - Canvas fg/hint */
+  --muted: #F7F7F7;
+  --muted-foreground: #6B6B6B;
+  
+  /* Accent - Blueberry light for hover states */
+  --accent: #E8F4FF;
+  --accent-foreground: #0875E1;
+  
+  /* Destructive - Canvas Cinnamon (error red) */
+  --destructive: #DE2E21;
+  --destructive-foreground: #FFFFFF;
+  
+  /* Success - Canvas Green Apple */
+  --success: #43C463;
+  --success-foreground: #FFFFFF;
+  
+  /* Warning - Canvas Cantaloupe */
+  --warning: #FF9227;
+  --warning-foreground: #333333;
+  
+  /* Border - Canvas border/default */
+  --border: #E0E0E0;
+  --input: #E0E0E0;
+  
+  /* Ring/Focus - Blueberry for focus rings */
+  --ring: #0875E1;
+  
+  /* Chart colors - Workday palette */
+  --chart-1: #0875E1;
+  --chart-2: #43C463;
+  --chart-3: #FF9227;
+  --chart-4: #9B59B6;
+  --chart-5: #1ABC9C;
+  
+  --radius: 8px;
+  
+  /* Sidebar - Canvas surface/alt */
+  --sidebar: #FAFAFA;
+  --sidebar-foreground: #333333;
+  --sidebar-primary: #0875E1;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #E8F4FF;
+  --sidebar-accent-foreground: #0875E1;
+  --sidebar-border: #E0E0E0;
+  --sidebar-ring: #0875E1;
+  
+  /* Workday-specific semantic tokens */
+  --workday-header-bg: #0875E1;
+  --workday-header-fg: #FFFFFF;
+  --workday-org-banner: #FFC107;
+  --workday-position-banner: #0875E1;
+  --workday-pending: #FF9227;
+  --workday-approved: #43C463;
+  --workday-denied: #DE2E21;
 }
 
+/* 
+ * WORKDAY CANVAS DARK THEME
+ * Authentic dark mode following Canvas guidelines
+ */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #1E1E1E;
+  --foreground: #F5F5F5;
+  
+  --card: #2A2A2A;
+  --card-foreground: #F5F5F5;
+  
+  --popover: #2A2A2A;
+  --popover-foreground: #F5F5F5;
+  
+  /* Primary stays vibrant in dark mode */
+  --primary: #40A0FF;
+  --primary-foreground: #1E1E1E;
+  
+  --secondary: #3A3A3A;
+  --secondary-foreground: #F5F5F5;
+  
+  --muted: #3A3A3A;
+  --muted-foreground: #A0A0A0;
+  
+  --accent: #0D3A6E;
+  --accent-foreground: #40A0FF;
+  
+  --destructive: #FF6B6B;
+  --destructive-foreground: #1E1E1E;
+  
+  --border: #404040;
+  --input: #404040;
+  --ring: #40A0FF;
+  
+  --chart-1: #40A0FF;
+  --chart-2: #5FE380;
+  --chart-3: #FFBC63;
+  --chart-4: #B87ED8;
+  --chart-5: #4FD1C5;
+  
+  --sidebar: #252525;
+  --sidebar-foreground: #F5F5F5;
+  --sidebar-primary: #40A0FF;
+  --sidebar-primary-foreground: #1E1E1E;
+  --sidebar-accent: #0D3A6E;
+  --sidebar-accent-foreground: #40A0FF;
+  --sidebar-border: #404040;
+  --sidebar-ring: #40A0FF;
+  
+  --workday-header-bg: #0D3A6E;
+  --workday-header-fg: #FFFFFF;
 }
 
 @layer base {
@@ -123,8 +208,270 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Roboto', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   html {
-    @apply font-sans;
+    font-family: 'Roboto', system-ui, sans-serif;
   }
+}
+
+/* 
+ * WORKDAY-SPECIFIC COMPONENT STYLES
+ * Authentic patterns from Workday UI
+ */
+
+/* Workday Header Bar */
+.workday-header {
+  background: var(--workday-header-bg);
+  color: var(--workday-header-fg);
+  height: 56px;
+}
+
+/* Workday Search Bar - Prominent centered search */
+.workday-search {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 24px;
+  color: white;
+  transition: all 0.2s ease;
+}
+
+.workday-search:hover,
+.workday-search:focus-within {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.workday-search::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Workday App Tiles */
+.workday-app-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.workday-app-tile:hover {
+  background: var(--accent);
+}
+
+/* Workday Related Actions Button */
+.workday-related-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--primary);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.workday-related-actions:hover {
+  background: var(--accent);
+}
+
+/* Workday Inbox Task Item */
+.workday-inbox-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.workday-inbox-item:hover {
+  background: var(--muted);
+}
+
+/* Workday Status Badges */
+.workday-badge-pending {
+  background: #FFF3E0;
+  color: #E65100;
+  border: 1px solid #FFB74D;
+}
+
+.workday-badge-approved {
+  background: #E8F5E9;
+  color: #2E7D32;
+  border: 1px solid #81C784;
+}
+
+.workday-badge-denied {
+  background: #FFEBEE;
+  color: #C62828;
+  border: 1px solid #EF9A9A;
+}
+
+.workday-badge-in-progress {
+  background: #E3F2FD;
+  color: #1565C0;
+  border: 1px solid #64B5F6;
+}
+
+/* Workday Org Chart Node */
+.workday-org-node {
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  overflow: hidden;
+}
+
+.workday-org-node-header {
+  padding: 8px 12px;
+  font-weight: 500;
+}
+
+.workday-org-node-header.organization {
+  background: #FFC107;
+  color: #333333;
+}
+
+.workday-org-node-header.position {
+  background: #0875E1;
+  color: #FFFFFF;
+}
+
+/* Workday Profile Tabs (Blue Ribbon Menu) */
+.workday-profile-tabs {
+  display: flex;
+  border-bottom: 2px solid var(--border);
+  background: var(--card);
+}
+
+.workday-profile-tab {
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.workday-profile-tab:hover {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+.workday-profile-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+/* Workday Form Fields */
+.workday-field-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.workday-field-value {
+  font-size: 14px;
+  color: var(--foreground);
+}
+
+/* Workday Button Variants */
+.workday-btn-primary {
+  background: var(--primary);
+  color: white;
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-weight: 500;
+  font-size: 14px;
+  transition: background 0.15s ease;
+}
+
+.workday-btn-primary:hover {
+  background: #005CB9;
+}
+
+.workday-btn-secondary {
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-weight: 500;
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+
+.workday-btn-secondary:hover {
+  background: var(--accent);
+}
+
+/* Workday Card Shadows - Subtle elevation */
+.workday-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.workday-card-elevated {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Workday Data Table */
+.workday-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.workday-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--border);
+  background: var(--muted);
+}
+
+.workday-table td {
+  padding: 12px 16px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.workday-table tr:hover td {
+  background: var(--muted);
+}
+
+/* Animation for loading states */
+@keyframes workday-shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+.workday-skeleton {
+  background: linear-gradient(90deg, var(--muted) 0px, #f0f0f0 50%, var(--muted) 100%);
+  background-size: 200px 100%;
+  animation: workday-shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
 }

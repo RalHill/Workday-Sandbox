@@ -16,6 +16,7 @@ interface UIState {
   isTasksOpen: boolean
   isSidebarCollapsed: boolean
   activeView: string | null
+  pendingTaskCount: number
 }
 
 // Sandbox state
@@ -61,6 +62,7 @@ export const useAppStore = create<AppState>()(
       isTasksOpen: false,
       isSidebarCollapsed: false,
       activeView: null,
+      pendingTaskCount: 3, // Default for demo
       
       // Initial sandbox state
       currentSnapshotId: null,
