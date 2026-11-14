@@ -1,0 +1,756 @@
+// Workday Analyst Practice Sandbox - Prisma Schema
+// Faithfully models Workday HCM architecture
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum StaffingModel {
+  POSITION_BASED
+  JOB_BASED
+}
+
+enum PositionStatus {
+  OPEN
+  FILLED
+  FROZEN
+  CLOSED
+}
+
+enum WorkerType {
+  EMPLOYEE
+  CONTINGENT_WORKER
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  TERMINATED
+  ON_LEAVE
+  PENDING_HIRE
+}
+
+enum BPCategory {
+  STAFFING
+  COMPENSATION
+  TALENT
+  RECRUITING
+  ORGANIZATION
+  SECURITY
+}
+
+enum BPStepType {
+  INITIATION
+  APPROVAL
+  REVIEW
+  TO_DO
+  NOTIFICATION
+}
+
+enum AssigneeType {
+  SECURITY_GROUP
+  MANAGER
+  INITIATOR
+  SPECIFIC_USER
+  HR_PARTNER
+}
+
+enum ConditionOperator {
+  EQUALS
+  NOT_EQUALS
+  GREATER_THAN
+  LESS_THAN
+  GREATER_THAN_OR_EQUALS
+  LESS_THAN_OR_EQUALS
+  CONTAINS
+  IN_LIST
+}
+
+enum ConditionAction {
+  ROUTE_TO_STEP
+  SKIP_STEP
+  ADD_APPROVER
+  REQUIRE_APPROVAL
+}
+
+enum TransactionStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  DENIED
+}
+
+enum StepStatus {
+  PENDING
+  APPROVED
+  DENIED
+  SENT_BACK
+  COMPLETE
+  SKIPPED
+}
+
+enum SecurityGroupType {
+  USER_BASED
+  ROLE_BASED
+  SEGMENT_BASED
+}
+
+// =============================================================================
+// ORGANIZATION MODELS
+// =============================================================================
+
+model Company {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  name          String
+  legalName     String?
+  country       String   @default("USA")
+  currency      String   @default("USD")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workers       Worker[]
+  locations     Location[]
+  costCenters   CostCenter[]
+}
+
+model Location {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  name          String
+  address       String?
+  city          String?
+  state         String?
+  postalCode    String?
+  country       String   @default("USA")
+  timeZone      String   @default("America/New_York")
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id])
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  positions     Position[]
+  workers       Worker[]
+}
+
+model CostCenter {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  name          String
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id])
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  positions     Position[]
+  workers       Worker[]
+}
+
+model SupervisoryOrganization {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  name            String
+  description     String?
+  
+  // Hierarchical relationship
+  parentId        String?
+  parent          SupervisoryOrganization?  @relation("OrgHierarchy", fields: [parentId], references: [id])
+  children        SupervisoryOrganization[] @relation("OrgHierarchy")
+  
+  // Manager assignment
+  managerId       String?
+  manager         Worker?   @relation("ManagedOrgs", fields: [managerId], references: [id])
+  
+  // Staffing configuration
+  staffingModel   StaffingModel @default(POSITION_BASED)
+  
+  // Status
+  isActive        Boolean   @default(true)
+  effectiveDate   DateTime  @default(now())
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  positions       Position[]
+  workers         Worker[]
+}
+
+// =============================================================================
+// JOB CATALOG MODELS
+// =============================================================================
+
+model JobFamily {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  name            String
+  description     String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  jobProfiles     JobProfile[]
+}
+
+model JobProfile {
+  id                    String   @id @default(cuid())
+  code                  String   @unique
+  title                 String
+  summary               String?
+  description           String?
+  
+  // Job classification
+  jobFamilyId           String
+  jobFamily             JobFamily @relation(fields: [jobFamilyId], references: [id])
+  jobLevel              Int       @default(1)  // 1-10 scale
+  managementLevel       String?   // Executive, Director, Manager, Individual Contributor
+  
+  // Compensation eligibility
+  isEligibleForBonus    Boolean   @default(false)
+  isEligibleForStock    Boolean   @default(false)
+  minSalary             Float?
+  midSalary             Float?
+  maxSalary             Float?
+  
+  // Requirements
+  requiredSkills        String?   // JSON array of skills
+  requiredCertifications String?  // JSON array of certifications
+  
+  isActive              Boolean   @default(true)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  positions             Position[]
+  workers               Worker[]
+}
+
+// =============================================================================
+// POSITION & WORKER MODELS
+// =============================================================================
+
+model Position {
+  id                  String   @id @default(cuid())
+  positionId          String   @unique  // e.g., "P-00001"
+  title               String
+  
+  // Job profile link
+  jobProfileId        String
+  jobProfile          JobProfile @relation(fields: [jobProfileId], references: [id])
+  
+  // Organization assignment
+  supervisoryOrgId    String
+  supervisoryOrg      SupervisoryOrganization @relation(fields: [supervisoryOrgId], references: [id])
+  
+  // Location & Cost Center
+  locationId          String?
+  location            Location? @relation(fields: [locationId], references: [id])
+  costCenterId        String?
+  costCenter          CostCenter? @relation(fields: [costCenterId], references: [id])
+  
+  // Position details
+  status              PositionStatus @default(OPEN)
+  ftePercentage       Float     @default(1.0)
+  isManagement        Boolean   @default(false)
+  isCritical          Boolean   @default(false)
+  
+  // Hiring restrictions
+  earliestHireDate    DateTime?
+  latestHireDate      DateTime?
+  
+  // Worker assignment (only when FILLED)
+  workerId            String?   @unique
+  worker              Worker?   @relation(fields: [workerId], references: [id])
+  
+  effectiveDate       DateTime  @default(now())
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+model Worker {
+  id                  String   @id @default(cuid())
+  workerId            String   @unique  // e.g., "EMP-00001"
+  
+  // Personal information
+  firstName           String
+  lastName            String
+  middleName          String?
+  preferredName       String?
+  email               String   @unique
+  phone               String?
+  
+  // Employment details
+  workerType          WorkerType      @default(EMPLOYEE)
+  employmentStatus    EmploymentStatus @default(ACTIVE)
+  hireDate            DateTime
+  terminationDate     DateTime?
+  
+  // Current job details
+  jobProfileId        String?
+  jobProfile          JobProfile? @relation(fields: [jobProfileId], references: [id])
+  businessTitle       String?  // Can differ from job profile title
+  
+  // Organization assignment
+  supervisoryOrgId    String?
+  supervisoryOrg      SupervisoryOrganization? @relation(fields: [supervisoryOrgId], references: [id])
+  
+  // Manager relationship
+  managerId           String?
+  manager             Worker?   @relation("ManagerReports", fields: [managerId], references: [id])
+  directReports       Worker[]  @relation("ManagerReports")
+  
+  // Company & Location
+  companyId           String?
+  company             Company? @relation(fields: [companyId], references: [id])
+  locationId          String?
+  location            Location? @relation(fields: [locationId], references: [id])
+  costCenterId        String?
+  costCenter          CostCenter? @relation(fields: [costCenterId], references: [id])
+  
+  // Compensation
+  annualSalary        Float?
+  hourlyRate          Float?
+  currency            String    @default("USD")
+  payFrequency        String    @default("BIWEEKLY")
+  
+  // Photo
+  photoUrl            String?
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Reverse relations
+  position            Position?
+  managedOrgs         SupervisoryOrganization[] @relation("ManagedOrgs")
+  
+  // Security group memberships
+  securityGroupMemberships SecurityGroupMember[]
+  
+  // Business process participation
+  initiatedTransactions    BPTransaction[] @relation("InitiatedBy")
+  assignedSteps            BPTransactionStep[] @relation("AssignedTo")
+  completedSteps           BPTransactionStep[] @relation("CompletedBy")
+  
+  // System user (for login/auth)
+  userId                   String?   @unique
+}
+
+// =============================================================================
+// BUSINESS PROCESS ENGINE
+// =============================================================================
+
+model BPDefinition {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  name            String
+  description     String?
+  category        BPCategory
+  
+  // Configuration
+  isActive        Boolean  @default(true)
+  allowRescind    Boolean  @default(true)
+  allowCorrect    Boolean  @default(true)
+  
+  // Retention
+  retentionDays   Int      @default(365)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  steps           BPStep[]
+  transactions    BPTransaction[]
+  securityPolicies BPSecurityPolicy[]
+}
+
+model BPStep {
+  id              String   @id @default(cuid())
+  definitionId    String
+  definition      BPDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  
+  // Step ordering
+  stepOrder       Int
+  
+  // Step details
+  name            String
+  description     String?
+  stepType        BPStepType
+  
+  // Assignment
+  assigneeType    AssigneeType
+  assigneeGroupId String?
+  assigneeGroup   SecurityGroup? @relation(fields: [assigneeGroupId], references: [id])
+  
+  // Due date
+  dueInDays       Int?
+  
+  // Flags
+  isRequired      Boolean  @default(true)
+  isParallel      Boolean  @default(false)  // Can run in parallel with other steps
+  allowDelegation Boolean  @default(true)
+  sendNotification Boolean @default(true)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  conditionRules  ConditionRule[]
+  transactionSteps BPTransactionStep[]
+
+  @@unique([definitionId, stepOrder])
+}
+
+model ConditionRule {
+  id              String   @id @default(cuid())
+  stepId          String
+  step            BPStep   @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  
+  // Rule definition
+  name            String?
+  description     String?
+  
+  // Condition (field operator value)
+  field           String   // e.g., "proposedSalary", "jobLevel", "department"
+  operator        ConditionOperator
+  value           String   // e.g., "100000", "Engineering"
+  
+  // Action when condition is met
+  actionType      ConditionAction
+  targetStepOrder Int?     // Step to route to if condition met
+  
+  // Priority (lower = evaluated first)
+  priority        Int      @default(100)
+  
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model BPTransaction {
+  id              String   @id @default(cuid())
+  transactionId   String   @unique  // e.g., "TXN-00001"
+  
+  // Business process
+  definitionId    String
+  definition      BPDefinition @relation(fields: [definitionId], references: [id])
+  
+  // Subject of the transaction (polymorphic reference)
+  subjectType     String   // "Worker", "Position", "Organization"
+  subjectId       String   // ID of the subject
+  subjectDisplay  String?  // Display name for UI
+  
+  // Initiator
+  initiatorId     String
+  initiator       Worker   @relation("InitiatedBy", fields: [initiatorId], references: [id])
+  
+  // Status
+  status          TransactionStatus @default(IN_PROGRESS)
+  
+  // Dates
+  initiatedAt     DateTime @default(now())
+  completedAt     DateTime?
+  effectiveDate   DateTime @default(now())
+  
+  // Transaction data (JSON blob)
+  transactionData String?  // JSON with all the transaction details
+  
+  // Comments/notes
+  comments        String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  steps           BPTransactionStep[]
+}
+
+model BPTransactionStep {
+  id              String   @id @default(cuid())
+  transactionId   String
+  transaction     BPTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  
+  // Reference to the step definition
+  stepId          String
+  step            BPStep   @relation(fields: [stepId], references: [id])
+  
+  // Current assignee
+  assigneeId      String?
+  assignee        Worker?  @relation("AssignedTo", fields: [assigneeId], references: [id])
+  
+  // Status
+  status          StepStatus @default(PENDING)
+  
+  // Completion details
+  completedById   String?
+  completedBy     Worker?  @relation("CompletedBy", fields: [completedById], references: [id])
+  completedAt     DateTime?
+  
+  // Due date
+  dueDate         DateTime?
+  
+  // Comments/notes
+  comments        String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// =============================================================================
+// SECURITY FRAMEWORK
+// =============================================================================
+
+model SecurityGroup {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  name            String
+  description     String?
+  
+  groupType       SecurityGroupType
+  
+  // For role-based groups
+  roleType        String?  // "Manager", "HR Partner", "Executive", etc.
+  
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Members (for user-based groups)
+  members         SecurityGroupMember[]
+  
+  // Policies
+  domainPolicies  DomainSecurityPolicy[]
+  bpPolicies      BPSecurityPolicy[]
+  
+  // BP Step assignments
+  assignedSteps   BPStep[]
+}
+
+model SecurityGroupMember {
+  id              String   @id @default(cuid())
+  groupId         String
+  group           SecurityGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  workerId        String
+  worker          Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  
+  effectiveDate   DateTime @default(now())
+  expirationDate  DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([groupId, workerId])
+}
+
+model DomainSecurityPolicy {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  name            String
+  description     String?
+  
+  // Functional area
+  functionalArea  String   // "Staffing", "Compensation", "Recruiting", etc.
+  
+  // Permissions
+  canView         Boolean  @default(false)
+  canModify       Boolean  @default(false)
+  canReport       Boolean  @default(false)
+  
+  // Security groups with access
+  securityGroupId String
+  securityGroup   SecurityGroup @relation(fields: [securityGroupId], references: [id])
+  
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model BPSecurityPolicy {
+  id              String   @id @default(cuid())
+  
+  // Business process
+  definitionId    String
+  definition      BPDefinition @relation(fields: [definitionId], references: [id])
+  
+  // Security group
+  securityGroupId String
+  securityGroup   SecurityGroup @relation(fields: [securityGroupId], references: [id])
+  
+  // Permissions
+  canInitiate     Boolean  @default(false)
+  canApprove      Boolean  @default(false)
+  canViewAll      Boolean  @default(false)
+  canRescind      Boolean  @default(false)
+  canCorrect      Boolean  @default(false)
+  
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([definitionId, securityGroupId])
+}
+
+// =============================================================================
+// CUSTOM REPORTS
+// =============================================================================
+
+model CustomReport {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  name            String
+  description     String?
+  
+  // Report type
+  reportType      String   @default("ADVANCED")  // ADVANCED, MATRIX, SIMPLE
+  
+  // Data source
+  dataSource      String   // "Workers", "Positions", "Organizations", etc.
+  
+  // Report definition (JSON)
+  columns         String?  // JSON array of column definitions
+  filters         String?  // JSON array of filter definitions
+  sortOrder       String?  // JSON array of sort definitions
+  groupBy         String?  // JSON array of grouping definitions
+  
+  // Sharing
+  isPublic        Boolean  @default(false)
+  ownerId         String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// =============================================================================
+// CALCULATED FIELDS
+// =============================================================================
+
+model CalculatedField {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  name            String
+  description     String?
+  
+  // Field type
+  fieldType       String   // "TEXT", "NUMBER", "DATE", "BOOLEAN"
+  
+  // Calculation definition
+  expression      String   // Formula expression
+  
+  // Context
+  contextType     String   // "Worker", "Position", "Organization"
+  
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// =============================================================================
+// PRACTICE LABS
+// =============================================================================
+
+model PracticeLab {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  name            String
+  description     String?
+  
+  // Difficulty
+  difficulty      String   @default("INTERMEDIATE")  // BEGINNER, INTERMEDIATE, ADVANCED
+  
+  // Category
+  category        String   // "Staffing", "Business Process", "Security", "Reports"
+  
+  // Instructions
+  instructions    String?  // Markdown instructions
+  
+  // Verification query (SQL or JSON config)
+  verificationQuery String?
+  expectedResult    String?
+  
+  // Estimated time
+  estimatedMinutes  Int     @default(30)
+  
+  // Order
+  sortOrder         Int     @default(100)
+  
+  isActive          Boolean @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  completions       LabCompletion[]
+}
+
+model LabCompletion {
+  id              String   @id @default(cuid())
+  labId           String
+  lab             PracticeLab @relation(fields: [labId], references: [id])
+  
+  // User who completed
+  userId          String?
+  
+  // Completion status
+  isComplete      Boolean  @default(false)
+  score           Int?     // 0-100
+  
+  // Timing
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+  
+  // Notes
+  notes           String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// =============================================================================
+// AUDIT LOG
+// =============================================================================
+
+model AuditLog {
+  id              String   @id @default(cuid())
+  
+  // What changed
+  entityType      String   // "Worker", "Position", "BPTransaction", etc.
+  entityId        String
+  action          String   // "CREATE", "UPDATE", "DELETE"
+  
+  // Who changed it
+  userId          String?
+  userDisplay     String?
+  
+  // Change details
+  previousValue   String?  // JSON snapshot before change
+  newValue        String?  // JSON snapshot after change
+  changedFields   String?  // JSON array of changed field names
+  
+  // Context
+  ipAddress       String?
+  userAgent       String?
+  
+  createdAt       DateTime @default(now())
+}
+
+// =============================================================================
+// TENANT SNAPSHOT (for practice resets)
+// =============================================================================
+
+model TenantSnapshot {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  
+  // Snapshot data (gzipped JSON)
+  snapshotData    String   // Base64 encoded gzipped JSON
+  
+  // Metadata
+  createdById     String?
+  size            Int?     // Size in bytes
+  
+  createdAt       DateTime @default(now())
+}
