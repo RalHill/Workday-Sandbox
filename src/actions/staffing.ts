@@ -8,8 +8,10 @@
  */
 
 import prisma from '@/lib/db'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath } from '@/lib/revalidate'
 import { z } from 'zod'
+import { assignNextPendingStep } from './bp-engine'
+import { getCurrentWorkerId } from '@/lib/session'
 
 // =============================================================================
 // VALIDATION SCHEMAS
@@ -115,9 +117,11 @@ async function generateTransactionId(): Promise<string> {
 
 export async function hireEmployee(
   input: HireEmployeeInput,
-  initiatorId: string
+  initiatorId?: string
 ): Promise<ActionResult<{ workerId: string; transactionId: string }>> {
   try {
+    const resolvedInitiatorId = initiatorId || (await getCurrentWorkerId())
+
     // Validate input
     const validationResult = HireEmployeeSchema.safeParse(input)
     if (!validationResult.success) {
@@ -237,7 +241,7 @@ export async function hireEmployee(
           subjectType: 'Worker',
           subjectId: worker.id,
           subjectDisplay: `${data.firstName} ${data.lastName}`,
-          initiatorId,
+          initiatorId: resolvedInitiatorId,
           status: 'IN_PROGRESS',
           effectiveDate: new Date(data.hireDate),
           transactionData: JSON.stringify({
@@ -261,9 +265,9 @@ export async function hireEmployee(
           data: {
             transactionId: transaction.id,
             stepId: step.id,
-            assigneeId: isFirstStep ? initiatorId : null,
+            assigneeId: isFirstStep ? resolvedInitiatorId : null,
             status: isFirstStep ? 'COMPLETE' : 'PENDING',
-            completedById: isFirstStep ? initiatorId : null,
+            completedById: isFirstStep ? resolvedInitiatorId : null,
             completedAt: isFirstStep ? new Date() : null,
             dueDate,
           }
@@ -272,6 +276,9 @@ export async function hireEmployee(
 
       return { worker, transaction }
     })
+
+    // Route next pending step to the correct assignee
+    await assignNextPendingStep(result.transaction.id, 1, resolvedInitiatorId)
 
     // Revalidate relevant pages
     revalidatePath('/workers')
@@ -300,9 +307,11 @@ export async function hireEmployee(
 
 export async function createPosition(
   input: CreatePositionInput,
-  initiatorId: string
+  initiatorId?: string
 ): Promise<ActionResult<{ positionId: string; transactionId: string }>> {
   try {
+    const resolvedInitiatorId = initiatorId || (await getCurrentWorkerId())
+
     // Validate input
     const validationResult = CreatePositionSchema.safeParse(input)
     if (!validationResult.success) {
@@ -321,14 +330,17 @@ export async function createPosition(
 
     // Get or create Create Position BP
     let createPosBP = await prisma.bPDefinition.findFirst({
-      where: { code: 'BP-CREATE-POSITION', isActive: true },
+      where: {
+        OR: [{ code: 'BP-CREATE-POS' }, { code: 'BP-CREATE-POSITION' }],
+        isActive: true,
+      },
       include: { steps: { orderBy: { stepOrder: 'asc' } } }
     })
 
     if (!createPosBP) {
       createPosBP = await prisma.bPDefinition.create({
         data: {
-          code: 'BP-CREATE-POSITION',
+          code: 'BP-CREATE-POS',
           name: 'Create Position',
           description: 'Create a new position for staffing',
           category: 'STAFFING',
@@ -385,7 +397,7 @@ export async function createPosition(
           subjectType: 'Position',
           subjectId: position.id,
           subjectDisplay: data.title,
-          initiatorId,
+          initiatorId: resolvedInitiatorId,
           status: 'IN_PROGRESS',
           transactionData: JSON.stringify({
             ...data,
@@ -406,9 +418,9 @@ export async function createPosition(
           data: {
             transactionId: transaction.id,
             stepId: step.id,
-            assigneeId: isFirstStep ? initiatorId : null,
+            assigneeId: isFirstStep ? resolvedInitiatorId : null,
             status: isFirstStep ? 'COMPLETE' : 'PENDING',
-            completedById: isFirstStep ? initiatorId : null,
+            completedById: isFirstStep ? resolvedInitiatorId : null,
             completedAt: isFirstStep ? new Date() : null,
             dueDate,
           }
@@ -417,6 +429,8 @@ export async function createPosition(
 
       return { position, transaction }
     })
+
+    await assignNextPendingStep(result.transaction.id, 1, resolvedInitiatorId)
 
     revalidatePath('/staffing/positions')
     revalidatePath('/')
@@ -443,9 +457,11 @@ export async function createPosition(
 
 export async function terminateEmployee(
   input: TerminateEmployeeInput,
-  initiatorId: string
+  initiatorId?: string
 ): Promise<ActionResult<{ transactionId: string }>> {
   try {
+    const resolvedInitiatorId = initiatorId || (await getCurrentWorkerId())
+
     // Validate input
     const validationResult = TerminateEmployeeSchema.safeParse(input)
     if (!validationResult.success) {
@@ -530,13 +546,14 @@ export async function terminateEmployee(
           subjectType: 'Worker',
           subjectId: worker.id,
           subjectDisplay: `${worker.firstName} ${worker.lastName}`,
-          initiatorId,
+          initiatorId: resolvedInitiatorId,
           status: 'IN_PROGRESS',
           effectiveDate: new Date(data.terminationDate),
           transactionData: JSON.stringify({
             ...data,
             workerName: `${worker.firstName} ${worker.lastName}`,
-            workerId: worker.workerId,
+            workerId: worker.id,
+            workerIdDisplay: worker.workerId,
           }),
         }
       })
@@ -552,9 +569,9 @@ export async function terminateEmployee(
           data: {
             transactionId: transaction.id,
             stepId: step.id,
-            assigneeId: isFirstStep ? initiatorId : null,
+            assigneeId: isFirstStep ? resolvedInitiatorId : null,
             status: isFirstStep ? 'COMPLETE' : 'PENDING',
-            completedById: isFirstStep ? initiatorId : null,
+            completedById: isFirstStep ? resolvedInitiatorId : null,
             completedAt: isFirstStep ? new Date() : null,
             dueDate,
           }
@@ -563,6 +580,8 @@ export async function terminateEmployee(
 
       return { transaction }
     })
+
+    await assignNextPendingStep(result.transaction.id, 1, resolvedInitiatorId)
 
     revalidatePath('/workers')
     revalidatePath('/')

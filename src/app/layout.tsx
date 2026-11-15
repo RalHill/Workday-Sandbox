@@ -3,7 +3,7 @@ import { Roboto, Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { WorkdayHeader } from "@/components/layout/workday-header";
-import { CommandSearch } from "@/components/layout/command-search";
+import { ClientOverlays } from "@/components/layout/client-overlays";
 
 // Workday Canvas uses Roboto as its primary typeface
 const roboto = Roboto({
@@ -40,7 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {children}
             </main>
           </div>
-          <CommandSearch />
+          <ClientOverlays />
         </Providers>
       </body>
     </html>

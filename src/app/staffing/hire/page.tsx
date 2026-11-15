@@ -1,3 +1,4 @@
+import { connection } from 'next/server'
 import { 
   getSupervisoryOrgs, 
   getLocations, 
@@ -16,6 +17,7 @@ import { HireEmployeeForm } from './hire-form'
  */
 
 export default async function HireEmployeePage() {
+  await connection()
   // Fetch all dropdown data in parallel
   const [
     supervisoryOrgs,

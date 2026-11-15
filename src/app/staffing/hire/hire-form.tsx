@@ -196,10 +196,6 @@ export function HireEmployeeForm({
     setFieldErrors({})
 
     startTransition(async () => {
-      // TODO: Get actual initiator ID from auth context
-      // For now, we'll use a placeholder - in production this would come from session
-      const initiatorId = 'demo-user-id'
-
       const input: HireEmployeeInput = {
         firstName: formData.firstName,
         lastName: formData.lastName,
@@ -223,7 +219,7 @@ export function HireEmployeeForm({
         frequency: formData.frequency,
       }
 
-      const result = await hireEmployee(input, initiatorId)
+      const result = await hireEmployee(input)
 
       if (result.success) {
         // Show success message and redirect

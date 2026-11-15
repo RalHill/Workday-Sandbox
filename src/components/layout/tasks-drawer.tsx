@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import {
   Sheet,
@@ -23,10 +23,14 @@ import {
   ChevronRight,
   Inbox,
   Archive,
-  Search
+  Search,
+  Loader2
 } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
 import { Input } from '@/components/ui/input'
+import { approveStep, denyStep, sendBackStep, getSendBackTargets } from '@/actions'
+import { getCurrentWorkerId } from '@/lib/session'
+
 
 /**
  * Workday Inbox (Tasks Drawer)
@@ -53,58 +57,68 @@ interface Task {
   stepName: string
 }
 
-// Mock data - in real app this would come from an API
-const MOCK_TASKS: Task[] = [
-  {
-    id: '1',
-    transactionId: 'TXN-00002',
-    type: 'APPROVAL',
-    title: 'Approve Compensation Change',
-    subject: 'Alex Rivera',
-    subjectType: 'Worker',
-    initiator: 'Priya Patel',
-    initiatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-    dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-    status: 'PENDING',
-    businessProcess: 'Change Compensation',
-    stepName: 'VP Approval (High Value)',
-  },
-  {
-    id: '2',
-    transactionId: 'TXN-00003',
-    type: 'APPROVAL',
-    title: 'Approve Position Request',
-    subject: 'Senior Data Engineer - Platform Engineering',
-    subjectType: 'Position',
-    initiator: 'Priya Patel',
-    initiatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-    dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-    status: 'PENDING',
-    businessProcess: 'Create Position',
-    stepName: 'Finance Approval',
-  },
-  {
-    id: '3',
-    transactionId: 'TXN-00004',
-    type: 'REVIEW',
-    title: 'Review Hire Request',
-    subject: 'New Software Engineer',
-    subjectType: 'Worker',
-    initiator: 'Rachel Green',
-    initiatedAt: new Date(Date.now() - 4 * 60 * 60 * 1000),
-    dueDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-    status: 'OVERDUE',
-    businessProcess: 'Hire Employee',
-    stepName: 'HR Review',
-  },
-]
+interface ArchivedTask {
+  id: string
+  transactionId: string
+  title: string
+  subject: string
+  completedAt: Date
+  status: 'APPROVED' | 'DENIED' | 'COMPLETED'
+}
+
+/**
+ * Fetch pending tasks from the server
+ */
+async function fetchPendingTasks(): Promise<Task[]> {
+  try {
+    const response = await fetch('/api/tasks/pending')
+    if (!response.ok) return []
+    const data = await response.json()
+    return data.tasks.map((t: any) => ({
+      ...t,
+      initiatedAt: new Date(t.initiatedAt),
+      dueDate: t.dueDate ? new Date(t.dueDate) : null,
+    }))
+  } catch (error) {
+    console.error('Failed to fetch tasks:', error)
+    return []
+  }
+}
+
+/**
+ * Fetch archived tasks from the server
+ */
+async function fetchArchivedTasks(): Promise<ArchivedTask[]> {
+  try {
+    const response = await fetch('/api/tasks/archived')
+    if (!response.ok) return []
+    const data = await response.json()
+    return data.tasks.map((t: any) => ({
+      ...t,
+      completedAt: new Date(t.completedAt),
+    }))
+  } catch (error) {
+    console.error('Failed to fetch archived tasks:', error)
+    return []
+  }
+}
 
 /**
  * Workday Inbox Task Card
  * Matches Workday's task item design with status indicator bar
  */
-function TaskCard({ task, onAction }: { task: Task; onAction: (action: string) => void }) {
+function TaskCard({ 
+  task, 
+  onAction,
+  isProcessing 
+}: { 
+  task: Task
+  onAction: (action: string, data?: any) => void
+  isProcessing: boolean
+}) {
   const isOverdue = task.status === 'OVERDUE'
+  const [showDenyReason, setShowDenyReason] = useState(false)
+  const [denyReason, setDenyReason] = useState('')
   
   // Workday uses color bars to indicate task type
   const statusBarColor = {
@@ -112,6 +126,18 @@ function TaskCard({ task, onAction }: { task: Task; onAction: (action: string) =
     REVIEW: 'bg-blue-500',
     TO_DO: 'bg-gray-400',
   }[task.type]
+  
+  const handleDeny = () => {
+    if (!showDenyReason) {
+      setShowDenyReason(true)
+      return
+    }
+    if (denyReason.length >= 10) {
+      onAction('deny', { reason: denyReason })
+      setShowDenyReason(false)
+      setDenyReason('')
+    }
+  }
   
   return (
     <div 
@@ -168,35 +194,62 @@ function TaskCard({ task, onAction }: { task: Task; onAction: (action: string) =
           </div>
         )}
         
+        {/* Deny reason input */}
+        {showDenyReason && (
+          <div className="mt-3 space-y-2">
+            <textarea
+              placeholder="Enter denial reason (min 10 characters)..."
+              value={denyReason}
+              onChange={(e) => setDenyReason(e.target.value)}
+              className="w-full p-2 text-sm border rounded-md"
+              rows={2}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        )}
+        
         {/* Action buttons - Workday style */}
         {task.type === 'APPROVAL' && (
           <div className="flex items-center gap-2 mt-3">
             <button 
-              className="workday-btn-primary text-xs px-4 py-1.5"
+              className="workday-btn-primary text-xs px-4 py-1.5 flex items-center gap-1 disabled:opacity-50"
               onClick={(e) => { e.stopPropagation(); onAction('approve'); }}
+              disabled={isProcessing}
             >
+              {isProcessing && <Loader2 className="h-3 w-3 animate-spin" />}
               Approve
             </button>
             <button 
-              className="workday-btn-secondary text-xs px-3 py-1.5"
+              className="workday-btn-secondary text-xs px-3 py-1.5 disabled:opacity-50"
               onClick={(e) => { e.stopPropagation(); onAction('sendback'); }}
+              disabled={isProcessing}
             >
               Send Back
             </button>
             <button 
-              className="text-xs px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-full border border-red-200"
-              onClick={(e) => { e.stopPropagation(); onAction('deny'); }}
+              className="text-xs px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-full border border-red-200 disabled:opacity-50"
+              onClick={(e) => { e.stopPropagation(); handleDeny(); }}
+              disabled={isProcessing || (showDenyReason && denyReason.length < 10)}
             >
-              Deny
+              {showDenyReason ? 'Confirm Deny' : 'Deny'}
             </button>
+            {showDenyReason && (
+              <button 
+                className="text-xs px-2 py-1 text-gray-500 hover:text-gray-700"
+                onClick={(e) => { e.stopPropagation(); setShowDenyReason(false); setDenyReason(''); }}
+              >
+                Cancel
+              </button>
+            )}
           </div>
         )}
         
         {task.type === 'REVIEW' && (
           <div className="flex items-center gap-2 mt-3">
             <button 
-              className="workday-btn-primary text-xs px-4 py-1.5"
+              className="workday-btn-primary text-xs px-4 py-1.5 disabled:opacity-50"
               onClick={(e) => { e.stopPropagation(); onAction('complete'); }}
+              disabled={isProcessing}
             >
               Review
             </button>
@@ -206,8 +259,9 @@ function TaskCard({ task, onAction }: { task: Task; onAction: (action: string) =
         {task.type === 'TO_DO' && (
           <div className="flex items-center gap-2 mt-3">
             <button 
-              className="workday-btn-primary text-xs px-4 py-1.5"
+              className="workday-btn-primary text-xs px-4 py-1.5 disabled:opacity-50"
               onClick={(e) => { e.stopPropagation(); onAction('complete'); }}
+              disabled={isProcessing}
             >
               Complete
             </button>
@@ -221,10 +275,65 @@ function TaskCard({ task, onAction }: { task: Task; onAction: (action: string) =
   )
 }
 
+/**
+ * Archived Task Card
+ */
+function ArchivedTaskCard({ task }: { task: ArchivedTask }) {
+  const statusColor = {
+    APPROVED: 'text-green-600',
+    DENIED: 'text-red-600',
+    COMPLETED: 'text-blue-600',
+  }[task.status]
+  
+  const statusIcon = {
+    APPROVED: <CheckCircle className="h-4 w-4 text-green-600" />,
+    DENIED: <XCircle className="h-4 w-4 text-red-600" />,
+    COMPLETED: <CheckCircle className="h-4 w-4 text-blue-600" />,
+  }[task.status]
+  
+  return (
+    <div className="flex gap-3 p-4 hover:bg-gray-50">
+      <div className="w-1 rounded-full flex-shrink-0 bg-gray-300" />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          {statusIcon}
+          <span className={`text-xs font-medium ${statusColor}`}>
+            {task.status}
+          </span>
+        </div>
+        <h4 className="font-medium text-sm text-gray-900">{task.title}</h4>
+        <p className="text-sm text-gray-600 mt-0.5">{task.subject}</p>
+        <p className="text-xs text-gray-500 mt-1">
+          {formatDistanceToNow(task.completedAt, { addSuffix: true })}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export function TasksDrawer() {
   const { isTasksOpen, setTasksOpen } = useAppStore()
-  const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS)
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [archivedTasks, setArchivedTasks] = useState<ArchivedTask[]>([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [processingTaskId, setProcessingTaskId] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+  
+  // Fetch tasks when drawer opens
+  useEffect(() => {
+    if (isTasksOpen) {
+      setIsLoading(true)
+      Promise.all([
+        fetchPendingTasks(),
+        fetchArchivedTasks()
+      ]).then(([pending, archived]) => {
+        setTasks(pending)
+        setArchivedTasks(archived)
+        setIsLoading(false)
+      })
+    }
+  }, [isTasksOpen])
 
   const filteredTasks = tasks.filter(t => 
     t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -233,10 +342,95 @@ export function TasksDrawer() {
   const overdueTasks = filteredTasks.filter(t => t.status === 'OVERDUE')
   const approvalTasks = filteredTasks.filter(t => t.type === 'APPROVAL')
 
-  const handleTaskAction = (taskId: string, action: string) => {
-    console.log(`Task ${taskId}: ${action}`)
-    // In real app, this would call an API and route to next step
-    setTasks(tasks.filter(t => t.id !== taskId))
+  const handleTaskAction = async (taskId: string, action: string, data?: any) => {
+    setProcessingTaskId(taskId)
+    
+    const task = tasks.find(t => t.id === taskId)
+    if (!task) {
+      setProcessingTaskId(null)
+      return
+    }
+    
+    startTransition(async () => {
+      try {
+        const currentUserId = await getCurrentWorkerId()
+        let result
+        
+        switch (action) {
+          case 'approve':
+            result = await approveStep(
+              { stepId: taskId, comments: 'Approved via Inbox' },
+              currentUserId
+            )
+            break
+            
+          case 'deny':
+            result = await denyStep(
+              { stepId: taskId, reason: data?.reason || 'Denied via Inbox' },
+              currentUserId
+            )
+            break
+            
+          case 'sendback':
+            // For send back, we need to route to step 1 (initiation)
+            // In a full implementation, this would show a modal to select target step
+            const targets = await getSendBackTargets(taskId)
+            if (targets.length > 0) {
+              result = await sendBackStep(
+                { 
+                  stepId: taskId, 
+                  targetStepOrder: targets[0].stepOrder,
+                  comments: 'Sent back for revision via Inbox'
+                },
+                currentUserId
+              )
+            } else {
+              console.error('No send-back targets available')
+              setProcessingTaskId(null)
+              return
+            }
+            break
+            
+          case 'complete':
+            // For TO_DO and REVIEW, just approve/complete
+            result = await approveStep(
+              { stepId: taskId, comments: 'Completed via Inbox' },
+              currentUserId
+            )
+            break
+            
+          default:
+            console.error('Unknown action:', action)
+            setProcessingTaskId(null)
+            return
+        }
+        
+        if (result?.success) {
+          // Remove task from list
+          setTasks(prev => prev.filter(t => t.id !== taskId))
+          
+          // Add to archive
+          if (result.data.transactionComplete) {
+            const archived: ArchivedTask = {
+              id: taskId,
+              transactionId: task.transactionId,
+              title: task.title,
+              subject: task.subject,
+              completedAt: new Date(),
+              status: action === 'deny' ? 'DENIED' : 
+                      action === 'approve' ? 'APPROVED' : 'COMPLETED'
+            }
+            setArchivedTasks(prev => [archived, ...prev])
+          }
+        } else {
+          console.error('Action failed:', result?.error)
+        }
+      } catch (error) {
+        console.error('Task action error:', error)
+      } finally {
+        setProcessingTaskId(null)
+      }
+    })
   }
 
   return (
@@ -250,7 +444,7 @@ export function TasksDrawer() {
               Inbox
             </SheetTitle>
             <SheetDescription>
-              {tasks.length} item{tasks.length !== 1 ? 's' : ''} requiring your action
+              {isLoading ? 'Loading...' : `${tasks.length} item${tasks.length !== 1 ? 's' : ''} requiring your action`}
             </SheetDescription>
           </SheetHeader>
           
@@ -280,13 +474,18 @@ export function TasksDrawer() {
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#0875E1] data-[state=active]:bg-transparent data-[state=active]:text-[#0875E1] py-3"
             >
               <Archive className="h-4 w-4 mr-1" />
-              Archive
+              Archive ({archivedTasks.length})
             </TabsTrigger>
           </TabsList>
 
           <ScrollArea className="flex-1 bg-gray-50">
             <TabsContent value="actions" className="m-0 p-0">
-              {filteredTasks.length === 0 ? (
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <Loader2 className="h-8 w-8 text-[#0875E1] animate-spin mb-4" />
+                  <p className="text-sm text-gray-500">Loading tasks...</p>
+                </div>
+              ) : filteredTasks.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
                   <p className="font-medium text-gray-900">You're all caught up!</p>
@@ -298,7 +497,8 @@ export function TasksDrawer() {
                     <TaskCard 
                       key={task.id} 
                       task={task} 
-                      onAction={(action) => handleTaskAction(task.id, action)} 
+                      onAction={(action, data) => handleTaskAction(task.id, action, data)}
+                      isProcessing={processingTaskId === task.id || isPending}
                     />
                   ))}
                 </div>
@@ -306,16 +506,24 @@ export function TasksDrawer() {
             </TabsContent>
 
             <TabsContent value="archive" className="m-0 p-0">
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <Archive className="h-16 w-16 text-gray-300 mb-4" />
-                <p className="font-medium text-gray-900">Archive</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  View completed business processes from the past 30 days
-                </p>
-                <p className="text-xs text-gray-400 mt-4">
-                  No archived items to display
-                </p>
-              </div>
+              {archivedTasks.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <Archive className="h-16 w-16 text-gray-300 mb-4" />
+                  <p className="font-medium text-gray-900">Archive</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    View completed business processes from the past 30 days
+                  </p>
+                  <p className="text-xs text-gray-400 mt-4">
+                    No archived items to display
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-200 bg-white">
+                  {archivedTasks.map((task) => (
+                    <ArchivedTaskCard key={task.id} task={task} />
+                  ))}
+                </div>
+              )}
             </TabsContent>
           </ScrollArea>
         </Tabs>

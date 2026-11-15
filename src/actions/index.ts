@@ -34,3 +34,22 @@ export {
   type TerminateEmployeeInput,
   type ActionResult,
 } from './staffing'
+
+// Approval actions
+export {
+  approveStep,
+  denyStep,
+  sendBackStep,
+  getSendBackTargets,
+  type ApprovalInput,
+  type DenyInput,
+  type SendBackInput,
+  type ApprovalResult,
+} from './approvals'
+
+// BP Engine
+export {
+  determineAssignee,
+  assignNextPendingStep,
+  handleTransactionCompletion,
+} from './bp-engine'

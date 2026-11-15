@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState, useEffect } from 'react'
+import { useCallback, useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Command,
@@ -31,9 +31,12 @@ import {
   FlaskConical,
   Clock,
   Star,
-  TrendingUp
+  TrendingUp,
+  Loader2
 } from 'lucide-react'
 import { useAppStore } from '@/store/app-store'
+import { globalSearch } from '@/actions'
+
 
 /**
  * Workday Command Search (Global Search)
@@ -45,7 +48,24 @@ import { useAppStore } from '@/store/app-store'
  * - Recent searches and saved categories
  */
 
-interface CommandItem {
+// Debounce helper
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value)
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value)
+    }, delay)
+
+    return () => {
+      clearTimeout(handler)
+    }
+  }, [value, delay])
+
+  return debouncedValue
+}
+
+interface CommandItemType {
   id: string
   name: string
   description?: string
@@ -55,11 +75,32 @@ interface CommandItem {
   keywords?: string[]
 }
 
+interface SearchResult {
+  workers: Array<{
+    id: string
+    workerId: string
+    firstName: string
+    lastName: string
+    businessTitle: string | null
+  }>
+  positions: Array<{
+    id: string
+    positionId: string
+    title: string
+    status: string
+  }>
+  organizations: Array<{
+    id: string
+    code: string
+    name: string
+  }>
+}
+
 // Workday-style command items organized by category
-const COMMAND_ITEMS: CommandItem[] = [
+const COMMAND_ITEMS: CommandItemType[] = [
   // Tasks - Common staffing and HR actions
   { id: 'hire-employee', name: 'Hire Employee', description: 'Start the hire business process', category: 'task', icon: UserPlus, action: '/staffing/hire', keywords: ['hire', 'new', 'employee', 'onboard', 'recruit'] },
-  { id: 'create-position', name: 'Create Position', description: 'Add a new position to your organization', category: 'task', icon: Plus, action: '/positions/create', keywords: ['new', 'add', 'position', 'job', 'headcount'] },
+  { id: 'create-position', name: 'Create Position', description: 'Add a new position to your organization', category: 'task', icon: Plus, action: '/staffing/create-position', keywords: ['new', 'add', 'position', 'job', 'headcount'] },
   { id: 'terminate', name: 'Terminate Employee', description: 'Initiate termination business process', category: 'task', icon: Users, action: '/staffing/terminate', keywords: ['term', 'end', 'offboard', 'separation'] },
   { id: 'change-comp', name: 'Request Compensation Change', description: 'Propose a compensation change', category: 'task', icon: Calculator, action: '/compensation/change', keywords: ['salary', 'pay', 'raise', 'compensation', 'merit'] },
   { id: 'edit-bp', name: 'Edit Business Process Definition', description: 'Configure business process steps and rules', category: 'task', icon: Workflow, action: '/setup/business-processes', keywords: ['workflow', 'bp', 'process', 'approval', 'routing'] },
@@ -89,16 +130,40 @@ export function CommandSearch() {
   const router = useRouter()
   const { isCommandOpen, setCommandOpen } = useAppStore()
   const [searchQuery, setSearchQuery] = useState('')
-  const [localOpen, setLocalOpen] = useState(false)
+  const [searchResults, setSearchResults] = useState<SearchResult | null>(null)
+  const [isSearching, setIsSearching] = useState(false)
 
-  // Sync zustand state to local state after mount
+  // Debounce search query
+  const debouncedQuery = useDebounce(searchQuery, 300)
+
+  // Perform global search when debounced query changes
   useEffect(() => {
-    setLocalOpen(isCommandOpen)
+    if (debouncedQuery.length >= 2) {
+      setIsSearching(true)
+      globalSearch(debouncedQuery, 5)
+        .then(results => {
+          setSearchResults(results)
+          setIsSearching(false)
+        })
+        .catch(error => {
+          console.error('Search error:', error)
+          setIsSearching(false)
+        })
+    } else {
+      setSearchResults(null)
+    }
+  }, [debouncedQuery])
+
+  // Clear results when dialog closes
+  useEffect(() => {
+    if (!isCommandOpen) {
+      setSearchQuery('')
+      setSearchResults(null)
+    }
   }, [isCommandOpen])
 
   // Handle dialog open/close
   const handleOpenChange = useCallback((open: boolean) => {
-    setLocalOpen(open)
     setCommandOpen(open)
   }, [setCommandOpen])
 
@@ -107,51 +172,144 @@ export function CommandSearch() {
     router.push(action)
   }, [router, handleOpenChange])
 
-  // Filter items based on search
-  const filteredItems = COMMAND_ITEMS.filter(item => {
-    if (!searchQuery) return true
-    const query = searchQuery.toLowerCase()
-    return (
-      item.name.toLowerCase().includes(query) ||
-      item.description?.toLowerCase().includes(query) ||
-      item.keywords?.some(k => k.toLowerCase().includes(query))
-    )
-  })
+  // Filter static items based on search
+  const filteredItems = useMemo(() => {
+    return COMMAND_ITEMS.filter(item => {
+      if (!searchQuery) return true
+      const query = searchQuery.toLowerCase()
+      return (
+        item.name.toLowerCase().includes(query) ||
+        item.description?.toLowerCase().includes(query) ||
+        item.keywords?.some(k => k.toLowerCase().includes(query))
+      )
+    })
+  }, [searchQuery])
 
   const taskItems = filteredItems.filter(i => i.category === 'task')
   const reportItems = filteredItems.filter(i => i.category === 'report')
   const setupItems = filteredItems.filter(i => i.category === 'setup')
 
+  // Check if we have any results
+  const hasStaticResults = filteredItems.length > 0
+  const hasDynamicResults = searchResults && (
+    searchResults.workers.length > 0 ||
+    searchResults.positions.length > 0 ||
+    searchResults.organizations.length > 0
+  )
+  const hasResults = hasStaticResults || hasDynamicResults
+
   return (
-    <CommandDialog open={localOpen} onOpenChange={handleOpenChange}>
+    <CommandDialog open={isCommandOpen} onOpenChange={handleOpenChange}>
       <CommandInput 
-        placeholder="Search tasks, reports, people..." 
+        placeholder="Search tasks, reports, workers, positions..." 
         value={searchQuery}
         onValueChange={setSearchQuery}
       />
       <CommandList>
-        <CommandEmpty>
-          <div className="flex flex-col items-center py-6 text-center">
-            <Search className="h-10 w-10 text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">No results found.</p>
-            <p className="text-xs text-muted-foreground">Try searching for a task, report, or worker name.</p>
-          </div>
-        </CommandEmpty>
+        {!hasResults && !isSearching && searchQuery && (
+          <CommandEmpty>
+            <div className="flex flex-col items-center py-6 text-center">
+              <Search className="h-10 w-10 text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground">No results found.</p>
+              <p className="text-xs text-muted-foreground">Try searching for a task, report, or worker name.</p>
+            </div>
+          </CommandEmpty>
+        )}
 
-        {taskItems.length > 0 && (
-          <CommandGroup heading="Tasks">
-            {taskItems.map((item) => (
+        {isSearching && (
+          <div className="flex items-center justify-center py-6">
+            <Loader2 className="h-6 w-6 text-muted-foreground animate-spin" />
+          </div>
+        )}
+
+        {/* Dynamic search results - Workers */}
+        {searchResults && searchResults.workers.length > 0 && (
+          <CommandGroup heading="Workers">
+            {searchResults.workers.map((worker) => (
               <CommandItem
-                key={item.id}
-                value={item.name}
-                onSelect={() => runCommand(item.action)}
+                key={worker.id}
+                value={`worker-${worker.workerId}`}
+                onSelect={() => runCommand(`/workers/${worker.id}`)}
                 className="flex items-center gap-3"
               >
-                <item.icon className="h-4 w-4 text-muted-foreground" />
-                <span>{item.name}</span>
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <div className="flex flex-col">
+                  <span>{worker.firstName} {worker.lastName}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {worker.businessTitle || worker.workerId}
+                  </span>
+                </div>
               </CommandItem>
             ))}
           </CommandGroup>
+        )}
+
+        {/* Dynamic search results - Positions */}
+        {searchResults && searchResults.positions.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading="Positions">
+              {searchResults.positions.map((position) => (
+                <CommandItem
+                  key={position.id}
+                  value={`position-${position.positionId}`}
+                  onSelect={() => runCommand(`/positions/${position.id}`)}
+                  className="flex items-center gap-3"
+                >
+                  <Briefcase className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex flex-col">
+                    <span>{position.title}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {position.positionId} • {position.status}
+                    </span>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
+        )}
+
+        {/* Dynamic search results - Organizations */}
+        {searchResults && searchResults.organizations.length > 0 && (
+          <>
+            <CommandSeparator />
+            <CommandGroup heading="Organizations">
+              {searchResults.organizations.map((org) => (
+                <CommandItem
+                  key={org.id}
+                  value={`org-${org.code}`}
+                  onSelect={() => runCommand(`/organizations/${org.id}`)}
+                  className="flex items-center gap-3"
+                >
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex flex-col">
+                    <span>{org.name}</span>
+                    <span className="text-xs text-muted-foreground">{org.code}</span>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
+        )}
+
+        {/* Static command items */}
+        {taskItems.length > 0 && (
+          <>
+            {(hasDynamicResults) && <CommandSeparator />}
+            <CommandGroup heading="Tasks">
+              {taskItems.map((item) => (
+                <CommandItem
+                  key={item.id}
+                  value={item.name}
+                  onSelect={() => runCommand(item.action)}
+                  className="flex items-center gap-3"
+                >
+                  <item.icon className="h-4 w-4 text-muted-foreground" />
+                  <span>{item.name}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </>
         )}
 
         {reportItems.length > 0 && (
