@@ -149,7 +149,7 @@ function OrgTreeNode({ org, level = 0 }: { org: OrgWithCounts; level?: number })
         </div>
 
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+          <DropdownMenuTrigger>
             <Button 
               variant="ghost" 
               size="icon" 

@@ -157,7 +157,7 @@ export default async function LabsPage() {
                     </div>
                   </CardContent>
                   <CardFooter className="pt-0">
-                    <Button className="w-full" variant={lab.isCompleted ? 'outline' : 'default'} asChild>
+                    <Button className="w-full" variant={lab.isCompleted ? 'outline' : 'default'}>
                       <Link href={`/labs/${lab.code}`}>
                         <Play className="h-4 w-4 mr-2" />
                         {lab.isCompleted ? 'Retry Lab' : 'Start Lab'}

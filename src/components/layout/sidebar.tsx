@@ -124,7 +124,7 @@ function NavItemComponent({
   if (isCollapsed) {
     return (
       <Tooltip>
-        <TooltipTrigger asChild>
+        <TooltipTrigger>
           {content}
         </TooltipTrigger>
         <TooltipContent side="right">

@@ -56,17 +56,17 @@ import prisma from '@/lib/db'
  */
 
 async function getBusinessProcess(id: string) {
-  return prisma.businessProcessDefinition.findUnique({
+  return prisma.bPDefinition.findUnique({
     where: { id },
     include: {
       steps: {
-        orderBy: { order: 'asc' },
+        orderBy: { stepOrder: 'asc' },
         include: {
-          securityGroup: true,
-          conditions: true,
+          assigneeGroup: true,
+          conditionRules: true,
         }
       },
-      instances: {
+      transactions: {
         take: 10,
         orderBy: { createdAt: 'desc' },
         include: {
@@ -171,7 +171,7 @@ export default async function BusinessProcessDetailPage({
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-gray-500">Process Type</p>
-            <p className="text-lg font-semibold">{bp.processType.replace(/_/g, ' ')}</p>
+            <p className="text-lg font-semibold">{bp.category.replace(/_/g, ' ')}</p>
           </CardContent>
         </Card>
         <Card>
@@ -191,7 +191,7 @@ export default async function BusinessProcessDetailPage({
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-gray-500">Recent Instances</p>
-            <p className="text-lg font-semibold">{bp.instances.length}</p>
+            <p className="text-lg font-semibold">{bp.transactions.length}</p>
           </CardContent>
         </Card>
       </div>
@@ -224,7 +224,7 @@ export default async function BusinessProcessDetailPage({
 
                 {/* Step Number */}
                 <div className="w-8 h-8 rounded-full bg-[#0875E1] text-white flex items-center justify-center text-sm font-medium">
-                  {step.order}
+                  {step.stepOrder}
                 </div>
 
                 {/* Step Info */}
@@ -235,17 +235,17 @@ export default async function BusinessProcessDetailPage({
                     {step.isRequired && (
                       <Badge variant="outline" className="text-xs">Required</Badge>
                     )}
-                    {step.conditions.length > 0 && (
+                    {step.conditionRules.length > 0 && (
                       <Badge variant="outline" className="text-xs text-purple-600 border-purple-200">
-                        {step.conditions.length} condition{step.conditions.length !== 1 ? 's' : ''}
+                        {step.conditionRules.length} condition{step.conditionRules.length !== 1 ? 's' : ''}
                       </Badge>
                     )}
                   </div>
                   <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
-                    {step.securityGroup && (
+                    {step.assigneeGroup && (
                       <span className="flex items-center gap-1">
                         <Shield className="h-3 w-3" />
-                        {step.securityGroup.name}
+                        {step.assigneeGroup.name}
                       </span>
                     )}
                     {step.dueInDays && (
@@ -261,7 +261,7 @@ export default async function BusinessProcessDetailPage({
 
                 {/* Actions */}
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
+                  <DropdownMenuTrigger>
                     <Button 
                       variant="ghost" 
                       size="icon" 
@@ -364,14 +364,14 @@ export default async function BusinessProcessDetailPage({
               Recent transactions using this business process
             </CardDescription>
           </div>
-          <Link href={`/configuration/business-processes/${id}/instances`}>
+          <Link href={`/configuration/business-processes/${id}/transactions`}>
             <Button variant="outline" size="sm">View All</Button>
           </Link>
         </CardHeader>
         <CardContent>
-          {bp.instances.length > 0 ? (
+          {bp.transactions.length > 0 ? (
             <div className="space-y-2">
-              {bp.instances.map(instance => (
+              {bp.transactions.map((instance) => (
                 <div 
                   key={instance.id}
                   className="flex items-center justify-between p-3 border rounded-lg"

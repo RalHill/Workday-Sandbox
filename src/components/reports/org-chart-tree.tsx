@@ -116,7 +116,7 @@ export function OrgChartTree({ manager, level }: OrgChartTreeProps) {
 
         {/* Actions Menu */}
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+          <DropdownMenuTrigger>
             <Button 
               variant="ghost" 
               size="icon" 
@@ -126,7 +126,7 @@ export function OrgChartTree({ manager, level }: OrgChartTreeProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem asChild>
+            <DropdownMenuItem>
               <Link href={`/workers/${manager.id}`}>
                 <User className="h-4 w-4 mr-2" />
                 View Profile

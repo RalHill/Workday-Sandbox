@@ -50,7 +50,7 @@ async function getOrgStructure() {
         },
         orderBy: { lastName: 'asc' }
       },
-      childOrgs: {
+      children: {
         include: {
           manager: true,
           workers: {
@@ -63,7 +63,7 @@ async function getOrgStructure() {
   })
 
   // Build tree structure - find root orgs (no parent)
-  const rootOrgs = supervisoryOrgs.filter(org => !org.parentOrgId)
+  const rootOrgs = supervisoryOrgs.filter(org => !org.parentId)
   
   return { supervisoryOrgs, rootOrgs }
 }

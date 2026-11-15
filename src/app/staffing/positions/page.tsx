@@ -39,15 +39,17 @@ async function getPositions() {
     include: {
       jobProfile: true,
       supervisoryOrg: true,
-      incumbent: true,
+      worker: true,
       location: true,
     },
     orderBy: { title: 'asc' },
   })
 }
 
-function getStatusBadge(status: string, incumbent: any) {
-  if (incumbent) {
+type PositionWithRelations = Awaited<ReturnType<typeof getPositions>>[number]
+
+function getStatusBadge(status: string, worker: PositionWithRelations['worker']) {
+  if (worker) {
     return <Badge variant="default" className="bg-green-600">Filled</Badge>
   }
   
@@ -66,8 +68,8 @@ function getStatusBadge(status: string, incumbent: any) {
 export default async function PositionsPage() {
   const positions = await getPositions()
 
-  const openPositions = positions.filter(p => p.status === 'OPEN' && !p.incumbent)
-  const filledPositions = positions.filter(p => p.incumbent)
+  const openPositions = positions.filter(p => p.status === 'OPEN' && !p.worker)
+  const filledPositions = positions.filter(p => p.worker)
 
   return (
     <div className="p-6 space-y-6">
@@ -234,24 +236,24 @@ export default async function PositionsPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {position.incumbent ? (
+                    {position.worker ? (
                       <Link 
-                        href={`/workers/${position.incumbent.id}`}
+                        href={`/workers/${position.worker.id}`}
                         className="flex items-center gap-2 text-sm hover:underline"
                       >
                         <User className="h-4 w-4 text-muted-foreground" />
-                        {position.incumbent.firstName} {position.incumbent.lastName}
+                        {position.worker.firstName} {position.worker.lastName}
                       </Link>
                     ) : (
                       <span className="text-muted-foreground text-sm">Vacant</span>
                     )}
                   </TableCell>
                   <TableCell>
-                    {getStatusBadge(position.status, position.incumbent)}
+                    {getStatusBadge(position.status, position.worker)}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
+                      <DropdownMenuTrigger>
                         <Button variant="ghost" size="icon" className="h-8 w-8">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
@@ -261,7 +263,7 @@ export default async function PositionsPage() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem>View Details</DropdownMenuItem>
                         <DropdownMenuItem>Edit Position</DropdownMenuItem>
-                        {!position.incumbent && position.status === 'OPEN' && (
+                        {!position.worker && position.status === 'OPEN' && (
                           <DropdownMenuItem>
                             <Link href={`/staffing/hire?position=${position.id}`}>
                               Hire Into Position

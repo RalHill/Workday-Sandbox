@@ -50,8 +50,7 @@ async function getWorker(id: string) {
           jobProfile: true,
         },
       },
-      positions: {
-        where: { status: 'FILLED' },
+      position: {
         include: {
           jobProfile: true,
         },

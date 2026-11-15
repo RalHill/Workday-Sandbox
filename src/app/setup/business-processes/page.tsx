@@ -146,7 +146,7 @@ export default async function BusinessProcessesPage() {
       </div>
 
       {/* Process List */}
-      <Accordion type="multiple" className="space-y-4">
+      <Accordion className="space-y-4">
         {processes.map((bp) => (
           <AccordionItem 
             key={bp.id} 

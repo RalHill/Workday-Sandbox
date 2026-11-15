@@ -52,12 +52,12 @@ import prisma from '@/lib/db'
  */
 
 async function getBusinessProcessDefinitions() {
-  return prisma.businessProcessDefinition.findMany({
+  return prisma.bPDefinition.findMany({
     include: {
       steps: {
-        orderBy: { order: 'asc' }
+        orderBy: { stepOrder: 'asc' }
       },
-      instances: {
+      transactions: {
         take: 5,
         orderBy: { createdAt: 'desc' }
       }
@@ -65,6 +65,8 @@ async function getBusinessProcessDefinitions() {
     orderBy: { name: 'asc' }
   })
 }
+
+type BPDefinitionWithRelations = Awaited<ReturnType<typeof getBusinessProcessDefinitions>>[number]
 
 function getStatusIcon(status: string) {
   switch (status) {
@@ -174,7 +176,7 @@ export default async function BusinessProcessConfigPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {bpDefinitions.reduce((sum, bp) => sum + bp.instances.length, 0)}
+                  {bpDefinitions.reduce((sum: number, bp: BPDefinitionWithRelations) => sum + bp.transactions.length, 0)}
                 </p>
                 <p className="text-sm text-gray-500">Recent Instances</p>
               </div>
@@ -251,7 +253,7 @@ export default async function BusinessProcessConfigPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {getBPTypeBadge(bp.processType)}
+                    {getBPTypeBadge(bp.category)}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -261,13 +263,13 @@ export default async function BusinessProcessConfigPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm">{bp.instances.length}</span>
+                      <span className="text-sm">{bp.transactions.length}</span>
                       <span className="text-xs text-gray-500">recent</span>
                     </div>
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
+                      <DropdownMenuTrigger>
                         <Button variant="ghost" size="icon" className="h-8 w-8">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
@@ -275,7 +277,7 @@ export default async function BusinessProcessConfigPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
+                        <DropdownMenuItem>
                           <Link href={`/configuration/business-processes/${bp.id}`}>
                             <Settings className="h-4 w-4 mr-2" />
                             Configure
